@@ -90,6 +90,48 @@ public class DungeonGenerator : MonoBehaviour
         int endRoomIndex = Random.Range(0, nonEmptyRooms.Count);
         nonEmptyRooms[endRoomIndex].roomSpace[nonEmptyRooms[endRoomIndex].centerX, nonEmptyRooms[endRoomIndex].centerY] = 4;
 
+        assignNeighborRooms();
+    }
+
+    public void assignNeighborRooms()
+    {
+        for (int i = 0; i < rooms.Count; i++)
+        {
+            if (rooms[i].isEmpty)
+            {
+                continue;
+            }
+
+            if (i - 1 >= 0)
+            {
+                if (!rooms[i - 1].isEmpty)
+                {
+                    rooms[i].leftNeighbor = rooms[i - 1];
+                }
+            }
+            if (i + 1 < rooms.Count)
+            {
+                if (!rooms[i + 1].isEmpty)
+                {
+                    rooms[i].rightNeighbor = rooms[i + 1];
+                }
+            }
+            if (i - 3 >= 0)
+            {
+                if (!rooms[i - 3].isEmpty)
+                {
+                    rooms[i].aboveNeighbor = rooms[i - 3];
+                }
+            }
+            if (i + 3 < rooms.Count)
+            {
+                if (!rooms[i + 3].isEmpty)
+                {
+                    rooms[i].belowNeighbor = rooms[i + 3];
+                }
+            }
+        }
+
         DrawDungeon(CombineRoomArrays());
     }
 
@@ -133,6 +175,8 @@ public class DungeonGenerator : MonoBehaviour
             for (int roomCol = 0; roomCol < maxRoomSize; roomCol++)
             {
                 floor[row * maxRoomSize + roomRow, col * maxRoomSize + roomCol] = room.roomSpace[roomRow, roomCol];
+                room.floorCenterX = row * maxRoomSize + roomRow;
+                room.floorCenterY = col * maxRoomSize + roomCol;
             }
         }
     }
