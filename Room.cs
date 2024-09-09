@@ -9,10 +9,17 @@ public class Room
 
     public int centerX;
     public int centerY;
+    public int floorCenterX;
+    public int floorCenterY;
 
     public int[,] roomSpace;
 
     public List<Room> neigborRooms = new List<Room>();
+
+    public Room aboveNeighbor;
+    public Room belowNeighbor;
+    public Room leftNeighbor;
+    public Room rightNeighbor;
 
     public bool isEmpty = false;
     public bool isStartRoom = false;
