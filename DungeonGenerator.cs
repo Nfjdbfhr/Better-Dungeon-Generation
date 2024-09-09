@@ -1,11 +1,13 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 public class DungeonGenerator : MonoBehaviour
 {
 
-    public int numOfRooms = 9;
+    public int maxNumOfRooms = 9;
+    public int minNumOfRooms = 4;
     public int numOfRows = 3;
     public int numOfCols = 3;
     public int maxRoomSize = 25;
@@ -14,7 +16,7 @@ public class DungeonGenerator : MonoBehaviour
     public GameObject floorTile;
     public GameObject centerTile;
     public GameObject startTile;
-    public GameObject endTIle;
+    public GameObject endTile;
 
     public List<Room> rooms = new List<Room>();
     public List<GameObject> floorObjects = new List<GameObject>();
@@ -33,9 +35,9 @@ public class DungeonGenerator : MonoBehaviour
 
     public void StartGenerating()
     {
-        if (numOfRooms != numOfRows * numOfCols)
+        if (maxNumOfRooms != numOfRows * numOfCols)
         {
-            Debug.LogError("Incorrect grid parameters: numOfRooms must equal numOfRows * numOfCols");
+            Debug.LogError("Incorrect grid parameters: maxNumOfRooms must equal numOfRows * numOfCols");
             return;
         }
 
@@ -51,15 +53,42 @@ public class DungeonGenerator : MonoBehaviour
         }
 
         floorObjects.Clear();
+        rooms.Clear();
     }
 
     public void GenerateFloor()
     {   
-        for (int i = 0; i < numOfRooms; i++)
+        int skipsLeft = maxNumOfRooms - minNumOfRooms;
+
+        for (int i = 0; i < maxNumOfRooms; i++)
         {
+            if (skipsLeft > 0 && Random.Range(0, 3) == 2)
+            {
+                skipsLeft--;
+                rooms.Add(new Room(maxRoomSize, minRoomSize));
+                rooms[i].isEmpty = true;
+                continue;
+            }
+
             rooms.Add(new Room(maxRoomSize, minRoomSize));
             rooms[i].GenerateRoom();
         }
+
+        ChooseStartAndEndRoom();
+    }
+
+    public void ChooseStartAndEndRoom()
+    {
+        List<Room> nonEmptyRooms = rooms.Where(room => !room.isEmpty).ToList();
+        
+        int startRoomIndex = Random.Range(0, nonEmptyRooms.Count);
+        nonEmptyRooms[startRoomIndex].isStartRoom = true;
+        nonEmptyRooms[startRoomIndex].roomSpace[nonEmptyRooms[startRoomIndex].centerX, nonEmptyRooms[startRoomIndex].centerY] = 3;
+
+        nonEmptyRooms.RemoveAt(startRoomIndex);
+
+        int endRoomIndex = Random.Range(0, nonEmptyRooms.Count);
+        nonEmptyRooms[endRoomIndex].roomSpace[nonEmptyRooms[endRoomIndex].centerX, nonEmptyRooms[endRoomIndex].centerY] = 4;
 
         DrawDungeon(CombineRoomArrays());
     }
@@ -68,12 +97,11 @@ public class DungeonGenerator : MonoBehaviour
     {
         int dungeonWidth = numOfCols * maxRoomSize;
         int dungeonHeight = numOfRows * maxRoomSize;
-        int[,] floor = new int[dungeonHeight, dungeonWidth];  // Full dungeon floor array
+        int[,] floor = new int[dungeonHeight, dungeonWidth];
 
-        // Place each room in its corresponding spot on the grid in a snaking pattern
         for (int row = 0; row < numOfRows; row++)
         {
-            if (row % 2 == 0)  // Even row, go left to right
+            if (row % 2 == 0)
             {
                 for (int col = 0; col < numOfCols; col++)
                 {
@@ -81,7 +109,7 @@ public class DungeonGenerator : MonoBehaviour
                     PlaceRoomInDungeon(floor, roomIndex, row, col);
                 }
             }
-            else  // Odd row, go right to left
+            else 
             {
                 for (int col = numOfCols - 1; col >= 0; col--)
                 {
@@ -94,12 +122,12 @@ public class DungeonGenerator : MonoBehaviour
         return floor;
     }
 
-    // Helper method to place a room in the dungeon array
+
     private void PlaceRoomInDungeon(int[,] floor, int roomIndex, int row, int col)
     {
         Room room = rooms[roomIndex];
 
-        // Place the room's tiles in the correct part of the floor array
+        
         for (int roomRow = 0; roomRow < maxRoomSize; roomRow++)
         {
             for (int roomCol = 0; roomCol < maxRoomSize; roomCol++)
@@ -123,6 +151,14 @@ public class DungeonGenerator : MonoBehaviour
                 else if (floor[row, col] == 2)
                 {
                     floorObjects.Add(Instantiate(centerTile, new Vector3(row, 0, col), Quaternion.identity));
+                }
+                else if (floor[row, col] == 3)
+                {
+                    floorObjects.Add(Instantiate(startTile, new Vector3(row, 0, col), Quaternion.identity));
+                }
+                else if (floor[row, col] == 4)
+                {
+                    floorObjects.Add(Instantiate(endTile, new Vector3(row, 0, col), Quaternion.identity));
                 }
             }
         }
