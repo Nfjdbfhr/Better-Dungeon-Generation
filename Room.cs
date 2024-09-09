@@ -7,17 +7,22 @@ public class Room
     private int maxRoomDimensions;
     private int minRoomDimensions;
 
-    private int roomCenterX { get; set; }
-    private int roomCenterY { get; set; }
+    public int centerX;
+    public int centerY;
 
     public int[,] roomSpace;
 
     public List<Room> neigborRooms = new List<Room>();
 
+    public bool isEmpty = false;
+    public bool isStartRoom = false;
+
     public Room(int maxSize, int minSize)
     {
         maxRoomDimensions = maxSize;
         minRoomDimensions = minSize;
+
+        roomSpace = new int [maxRoomDimensions, maxRoomDimensions];
     }
 
     public void GenerateRoom()
@@ -43,8 +48,8 @@ public class Room
 
     public void FindRoomCenter(int rowsDown, int colsOver, int roomLength, int roomHeight)
     {
-        int centerX = rowsDown + (roomHeight / 2);
-        int centerY = colsOver + (roomLength / 2);
+        centerX = rowsDown + (roomHeight / 2);
+        centerY = colsOver + (roomLength / 2);
 
         roomSpace[centerX, centerY] = 2;
     }
