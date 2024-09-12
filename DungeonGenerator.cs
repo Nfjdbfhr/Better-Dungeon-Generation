@@ -12,6 +12,7 @@ public class DungeonGenerator : MonoBehaviour
     public int numOfCols = 3;
     public int maxRoomSize = 25;
     public int minRoomSize = 8;
+    public int maxNumOfCoridoors = 2;
 
     // Prefabs for different types of tiles
     public GameObject floorTile;
@@ -21,6 +22,7 @@ public class DungeonGenerator : MonoBehaviour
 
     // Lists to keep track of rooms and instantiated tiles
     public List<Room> rooms = new List<Room>();
+    public List<Room> nonEmptyRooms = new List<Room>();
     public List<GameObject> floorObjects = new List<GameObject>();
 
     // Start is called before the first frame update
@@ -86,49 +88,185 @@ public class DungeonGenerator : MonoBehaviour
     // Randomly select start and end rooms
     public void ChooseStartAndEndRoom()
     {
-        List<Room> nonEmptyRooms = rooms.Where(room => !room.isEmpty).ToList();
+        nonEmptyRooms = rooms.Where(room => !room.isEmpty).ToList();
         
         int startRoomIndex = Random.Range(0, nonEmptyRooms.Count);
         nonEmptyRooms[startRoomIndex].isStartRoom = true;
         nonEmptyRooms[startRoomIndex].roomSpace[nonEmptyRooms[startRoomIndex].centerX, nonEmptyRooms[startRoomIndex].centerY] = 3; // Start room identifier
+        Debug.Log("Start: " + nonEmptyRooms[startRoomIndex].centerX + ", " + nonEmptyRooms[startRoomIndex].centerY);
 
-        nonEmptyRooms.RemoveAt(startRoomIndex);
+        int endRoomIndex = 0;
+        do
+        {
+            endRoomIndex = Random.Range(0, nonEmptyRooms.Count);
+        }
+        while (endRoomIndex == startRoomIndex);
 
-        int endRoomIndex = Random.Range(0, nonEmptyRooms.Count);
         nonEmptyRooms[endRoomIndex].roomSpace[nonEmptyRooms[endRoomIndex].centerX, nonEmptyRooms[endRoomIndex].centerY] = 4; // End room identifier
+        Debug.Log("End: " + nonEmptyRooms[endRoomIndex].centerX + ", " + nonEmptyRooms[endRoomIndex].centerY);
 
-        assignNeighborRooms(); // Assign neighbors to rooms
+        AssignNeighbors();
     }
 
-    // Assign neighboring rooms to each room
-    public void assignNeighborRooms()
+    public void AssignNeighbors()
     {
-        for (int i = 0; i < rooms.Count; i++)
+        for (int i = 0; i < nonEmptyRooms.Count; i++)
         {
-            if (rooms[i].isEmpty)
+            int[] closeRooms = findNearestRooms(maxNumOfCoridoors, nonEmptyRooms[i]);
+
+            for (int j = 0; j < closeRooms.Length; j++)
+            {
+                nonEmptyRooms[i].neighborRooms.Add(nonEmptyRooms[closeRooms[j]]);
+            }
+        }
+
+        DrawDungeon(GenerateCoridoors(CombineRoomArrays()));
+    }
+
+    public int[] findNearestRooms(int numToFind, Room currentRoom)
+    {
+        var closeRooms = Enumerable.Repeat<int>(1000, numToFind).ToArray();
+
+        for (int i = 0; i < nonEmptyRooms.Count; i++)
+        {
+            if (nonEmptyRooms[i] == currentRoom)
             {
                 continue;
             }
 
-            if (i - 1 >= 0 && !rooms[i - 1].isEmpty)
+            int distance = (Mathf.Abs(nonEmptyRooms[i].floorCenterX - currentRoom.floorCenterX)) + (Mathf.Abs(nonEmptyRooms[i].floorCenterY - currentRoom.floorCenterY));
+
+            for (int j = 0; j < closeRooms.Length; j++)
             {
-                rooms[i].leftNeighbor = rooms[i - 1];
-            }
-            if (i + 1 < rooms.Count && !rooms[i + 1].isEmpty)
-            {
-                rooms[i].rightNeighbor = rooms[i + 1];
-            }
-            if (i - 3 >= 0 && !rooms[i - 3].isEmpty)
-            {
-                rooms[i].aboveNeighbor = rooms[i - 3];
-            }
-            if (i + 3 < rooms.Count && !rooms[i + 3].isEmpty)
-            {
-                rooms[i].belowNeighbor = rooms[i + 3];
+                if (distance < closeRooms[j])
+                {
+                    // Shift elements to the right to make room for the new distance
+                    for (int k = closeRooms.Length - 1; k > j; k--)
+                    {
+                        closeRooms[k] = closeRooms[k - 1];
+                    }
+
+                    // Insert the new room index at the correct position
+                    closeRooms[j] = i;
+                    break; // Exit inner loop after placing the room
+                }
             }
         }
 
-        DrawDungeon(CombineRoomArrays()); // Draw the dungeon based on the combined room arrays
+        return closeRooms;
+    }
+
+
+    public int[,] GenerateCoridoors(int[,] floor)
+    {
+        for (int i = 0; i < nonEmptyRooms.Count; i++)
+        {
+            Room currentRoom = nonEmptyRooms[i];
+
+            if (currentRoom.neighborRooms.Count == 0)
+            {
+                continue;
+            }
+
+            int numOfCoridoors = Random.Range(1, currentRoom.neighborRooms.Count);
+
+            for (int j = 0; j < numOfCoridoors; j++)
+            {
+                Room neighbor = currentRoom.neighborRooms[Random.Range(0, currentRoom.neighborRooms.Count)];
+
+                if (currentRoom.numOfCoridoors >= maxNumOfCoridoors || neighbor.numOfCoridoors >= maxNumOfCoridoors)
+                {
+                    if (j != numOfCoridoors - 1 && currentRoom.numOfCoridoors != 0)
+                    {
+                        currentRoom.neighborRooms.Remove(neighbor);
+                        neighbor.neighborRooms.Remove(currentRoom);
+                        continue;
+                    }
+                }
+
+                floor = CreateCoridoor(floor, currentRoom, neighbor);
+
+                currentRoom.numOfCoridoors++;
+                neighbor.numOfCoridoors++;
+                currentRoom.neighborRooms.Remove(neighbor);
+                neighbor.neighborRooms.Remove(currentRoom);
+            }
+        }
+
+        return floor;
+    }
+
+    public int[,] CreateCoridoor(int[,] floor, Room room1, Room room2)
+    {
+        int startX = room1.floorCenterX;
+        int startY = room1.floorCenterY;
+
+        int targetX = room2.floorCenterX;
+        int targetY = room2.floorCenterY;
+
+        int currentX = startX;
+        int currentY = startY;
+
+        while (currentX != targetX || currentY != targetY)
+        {
+            int xChange = targetX - currentX;
+            int yChange = targetY - currentY;
+
+            if (xChange != 0 && yChange != 0)
+            {
+                if (Random.Range(0, 2) == 0)
+                {
+                    if (xChange > 0)
+                    {
+                        currentX++;
+                    }
+                    else
+                    {
+                        currentX--;
+                    }
+                }
+                else
+                {
+                    if (yChange > 0)
+                    {
+                        currentY++;
+                    }
+                    else
+                    {
+                        currentY--;
+                    }
+                }
+            }
+            else if (xChange != 0)
+            {
+                if (xChange > 0)
+                {
+                    currentX++;
+                }
+                else
+                {
+                    currentX--;
+                }
+            }
+            else if (yChange != 0)
+            {
+                if (yChange > 0)
+                {
+                    currentY++;
+                }
+                else
+                {
+                    currentY--;
+                }
+            }
+
+            if (floor[currentX, currentY] == 0)
+            {
+                floor[currentX, currentY] = 1;
+            }
+        } 
+
+        return floor;
     }
 
     // Combine room arrays into a single dungeon floor array
@@ -170,9 +308,16 @@ public class DungeonGenerator : MonoBehaviour
         {
             for (int roomCol = 0; roomCol < maxRoomSize; roomCol++)
             {
-                floor[row * maxRoomSize + roomRow, col * maxRoomSize + roomCol] = room.roomSpace[roomRow, roomCol];
-                room.floorCenterX = row * maxRoomSize + roomRow;
-                room.floorCenterY = col * maxRoomSize + roomCol;
+                int x = row * maxRoomSize + roomRow;
+                int y = col * maxRoomSize + roomCol;
+                floor [x, y] = room.roomSpace[roomRow, roomCol];
+
+                if (floor[x, y] == 2 || floor[x, y] == 3 || floor[x, y] == 4)
+                {
+                    
+                    room.floorCenterX = row * maxRoomSize + roomRow;
+                    room.floorCenterY = col * maxRoomSize + roomCol;
+                }
             }
         }
     }
