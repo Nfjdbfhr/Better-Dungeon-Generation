@@ -12,14 +12,11 @@ public class Room
     public int floorCenterX;
     public int floorCenterY;
 
+    public int numOfCoridoors = 0;
+
     public int[,] roomSpace;
 
     public List<Room> neighborRooms = new List<Room>();
-
-    public Room aboveNeighbor;
-    public Room belowNeighbor;
-    public Room leftNeighbor;
-    public Room rightNeighbor;
 
     public bool isEmpty = false;
     public bool isStartRoom = false;
