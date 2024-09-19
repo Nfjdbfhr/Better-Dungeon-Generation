@@ -20,26 +20,35 @@ public class DungeonGenerator : MonoBehaviour
     public GameObject startTile;
     public GameObject endTile;
 
+    public GameObject Player;
+
+    public int currentFloorNum = -1;
+    public List<Floor> floors = new List<Floor>();
+
     // Lists to keep track of rooms and instantiated tiles
     public List<Room> rooms = new List<Room>();
     public List<Room> nonEmptyRooms = new List<Room>();
     public List<GameObject> floorObjects = new List<GameObject>();
 
+    public FloorTransition transitionHandler;
+
     // Start is called before the first frame update
     void Start()
     {
+        transitionHandler = GameObject.Find("Transitions Manager").GetComponent<FloorTransition>();
         StartGenerating(); // Begin dungeon generation
     }
 
     // Update is called once per frame (not used in this script)
     void Update()
     {
-        
+
     }
 
     // Main method to start generating the dungeon
     public void StartGenerating()
     {
+        StartCoroutine(changeFloor());
         // Validate grid parameters
         if (maxNumOfRooms != numOfRows * numOfCols)
         {
@@ -49,6 +58,39 @@ public class DungeonGenerator : MonoBehaviour
 
         ClearPreviousGeneration(); // Clear previous dungeon
         GenerateFloor(); // Generate the new dungeon floor
+    }
+
+    public void LoadAboveFloor()
+    {
+        if (currentFloorNum == -1)
+        {
+            currentFloorNum++;
+            return;
+        }
+
+        StartCoroutine(changeFloor());
+
+        ClearPreviousGeneration();
+        Debug.Log("Cleared");
+        currentFloorNum--;
+        rooms = floors[currentFloorNum].rooms;
+        DrawDungeon(floors[currentFloorNum].floor, false);
+    }
+
+    public void LoadBelowFloor()
+    {
+        if (currentFloorNum == 24)
+        {
+            return;
+        }
+
+        StartCoroutine(changeFloor());
+
+        ClearPreviousGeneration();
+        Debug.Log("Cleared");
+        currentFloorNum++;
+        rooms = floors[currentFloorNum].rooms;
+        DrawDungeon(floors[currentFloorNum].floor);
     }
 
     // Clear any previously generated dungeon tiles
@@ -65,7 +107,7 @@ public class DungeonGenerator : MonoBehaviour
 
     // Generate the dungeon floor by creating rooms and placing them
     public void GenerateFloor()
-    {   
+    {
         int skipsLeft = maxNumOfRooms - minNumOfRooms;
 
         for (int i = 0; i < maxNumOfRooms; i++)
@@ -89,11 +131,10 @@ public class DungeonGenerator : MonoBehaviour
     public void ChooseStartAndEndRoom()
     {
         nonEmptyRooms = rooms.Where(room => !room.isEmpty).ToList();
-        
+
         int startRoomIndex = Random.Range(0, nonEmptyRooms.Count);
         nonEmptyRooms[startRoomIndex].isStartRoom = true;
         nonEmptyRooms[startRoomIndex].roomSpace[nonEmptyRooms[startRoomIndex].centerX, nonEmptyRooms[startRoomIndex].centerY] = 3; // Start room identifier
-        Debug.Log("Start: " + nonEmptyRooms[startRoomIndex].centerX + ", " + nonEmptyRooms[startRoomIndex].centerY);
 
         int endRoomIndex = 0;
         do
@@ -103,7 +144,6 @@ public class DungeonGenerator : MonoBehaviour
         while (endRoomIndex == startRoomIndex);
 
         nonEmptyRooms[endRoomIndex].roomSpace[nonEmptyRooms[endRoomIndex].centerX, nonEmptyRooms[endRoomIndex].centerY] = 4; // End room identifier
-        Debug.Log("End: " + nonEmptyRooms[endRoomIndex].centerX + ", " + nonEmptyRooms[endRoomIndex].centerY);
 
         AssignNeighbors();
     }
@@ -264,7 +304,7 @@ public class DungeonGenerator : MonoBehaviour
             {
                 floor[currentX, currentY] = 1;
             }
-        } 
+        }
 
         return floor;
     }
@@ -286,7 +326,7 @@ public class DungeonGenerator : MonoBehaviour
                     PlaceRoomInDungeon(floor, roomIndex, row, col); // Place the room in the dungeon
                 }
             }
-            else 
+            else
             {
                 for (int col = numOfCols - 1; col >= 0; col--)
                 {
@@ -295,6 +335,9 @@ public class DungeonGenerator : MonoBehaviour
                 }
             }
         }
+
+        currentFloorNum++;
+        floors.Add(new Floor(currentFloorNum + 1, floor));
 
         return floor;
     }
@@ -310,11 +353,11 @@ public class DungeonGenerator : MonoBehaviour
             {
                 int x = row * maxRoomSize + roomRow;
                 int y = col * maxRoomSize + roomCol;
-                floor [x, y] = room.roomSpace[roomRow, roomCol];
+                floor[x, y] = room.roomSpace[roomRow, roomCol];
 
                 if (floor[x, y] == 2 || floor[x, y] == 3 || floor[x, y] == 4)
                 {
-                    
+
                     room.floorCenterX = row * maxRoomSize + roomRow;
                     room.floorCenterY = col * maxRoomSize + roomCol;
                 }
@@ -323,7 +366,7 @@ public class DungeonGenerator : MonoBehaviour
     }
 
     // Instantiate and place the tiles in the game world
-    public void DrawDungeon(int[,] floor)
+    public void DrawDungeon(int[,] floor, bool playerGoesToStart = true)
     {
         for (int row = 0; row < floor.GetLength(0); row++)
         {
@@ -337,13 +380,29 @@ public class DungeonGenerator : MonoBehaviour
                         tilePrefab = floorTile;
                         break;
                     case 2:
-                        tilePrefab = centerTile;
+                        tilePrefab = floorTile;
                         break;
                     case 3:
                         tilePrefab = startTile;
+                        if (playerGoesToStart)
+                        {
+                            Player.transform.position = new Vector3(row, 1, col);
+                            Player.GetComponent<Player>().currentX = row;
+                            Player.GetComponent<Player>().currentY = col;
+                        }
+                        floors[currentFloorNum].floorStartX = row;
+                        floors[currentFloorNum].floorStartY = col;
                         break;
                     case 4:
                         tilePrefab = endTile;
+                        floors[currentFloorNum].floorEndX = row;
+                        floors[currentFloorNum].floorEndY = col;
+                        if (!playerGoesToStart)
+                        {
+                            Player.transform.position = new Vector3(row - 1, 1, col);
+                            Player.GetComponent<Player>().currentX = row - 1;
+                            Player.GetComponent<Player>().currentY = col;
+                        }
                         break;
                 }
 
@@ -353,5 +412,16 @@ public class DungeonGenerator : MonoBehaviour
                 }
             }
         }
+
+        floors[currentFloorNum].floor = floor;
+    }
+
+    public IEnumerator changeFloor()
+    {
+        transitionHandler.FadeIn();
+
+        yield return new WaitForSeconds(Random.Range(1.5f, 3f));
+
+        transitionHandler.FadeOut();
     }
 }
