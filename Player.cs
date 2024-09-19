@@ -21,31 +21,31 @@ public class Player : MonoBehaviour
     {
         int oldX = currentX;
         int oldY = currentY;
-            
+
         if (Input.GetKeyDown(KeyCode.W))
         {
-            if (generator.currentFloor[currentX - 1, currentY] != 0)
+            if (generator.floors[generator.currentFloorNum].floor[currentX - 1, currentY] != 0)
             {
                 currentX--;
             }
         }
         else if (Input.GetKeyDown(KeyCode.A))
         {
-            if (generator.currentFloor[currentX, currentY - 1] != 0)
+            if (generator.floors[generator.currentFloorNum].floor[currentX, currentY - 1] != 0)
             {
                 currentY--;
             }
         }
         else if (Input.GetKeyDown(KeyCode.S))
         {
-            if (generator.currentFloor[currentX + 1, currentY] != 0)
+            if (generator.floors[generator.currentFloorNum].floor[currentX + 1, currentY] != 0)
             {
                 currentX++;
             }
         }
         else if (Input.GetKeyDown(KeyCode.D))
         {
-            if (generator.currentFloor[currentX, currentY + 1] != 0)
+            if (generator.floors[generator.currentFloorNum].floor[currentX, currentY + 1] != 0)
             {
                 currentY++;
             }
@@ -54,6 +54,22 @@ public class Player : MonoBehaviour
         if (oldX != currentX || oldY != currentY)
         {
             transform.position = new Vector3(currentX, 1, currentY);
+
+            if (currentX == generator.floors[generator.currentFloorNum].floorStartX && currentY == generator.floors[generator.currentFloorNum].floorStartY)
+            {
+                generator.LoadAboveFloor();
+            }
+            if (currentX == generator.floors[generator.currentFloorNum].floorEndX && currentY == generator.floors[generator.currentFloorNum].floorEndY)
+            {
+                if (generator.currentFloorNum + 1 == generator.floors.Count)
+                {
+                    generator.StartGenerating();
+                }
+                else
+                {
+                    generator.LoadBelowFloor();
+                }
+            }
         }
     }
 }
